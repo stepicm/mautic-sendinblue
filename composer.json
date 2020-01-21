@@ -1,5 +1,5 @@
 {
-  "name": "dazzle/mautic-sendinblue-bundle",
+  "name": "stepicm/mautic-sendinblue-bundle",
   "description": "Allows to send E-mails with Sendinblue",
   "type": "mautic-plugin",
   "extra": {
@@ -14,6 +14,10 @@
     {
       "name": "Dazzle",
       "email": "info@dazzle.be"
+    },
+    {
+      "name": "stepicm",
+      "email": "grft801@airmail.cc"
     }
   ]
 }
