@@ -28,7 +28,6 @@ use Symfony\Component\Translation\TranslatorInterface;
  */
 class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swift_Transport, TokenTransportInterface, CallbackTransportInterface
 {
-
     /**
      * @var string|null
      */
@@ -43,6 +42,8 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
      * @var bool
      */
     protected $started = false;
+
+    protected $messages = [];
 
     /**
      * @var SendinblueApiCallback
@@ -135,22 +136,18 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         $smtpApiInstance = new SMTPApi(new Client(), $config);
 
         try {
-            $smtpEmail = $this->getSendinBlueEmail($message);
+            $rval = $this->getSendinBlueEmail($message);
         } catch (Exception $e) {
             $this->throwException($e->getMessage());
         }
 
-        // Return 0 if the SendinBlue email couldn't be parsed.
-        if (!$smtpEmail instanceof SendSmtpEmail) {
-            return $result;
-        }
+        foreach ($rval as $data) {
+            $smtpEmail = new SendSmtpEmail($data);
 
-        $recipients = $smtpEmail->getTo();
-
-        foreach ($recipients as $recipient) {
-            // Due to the fact that recipients shouldn't see other recipients
-            // in their emails we have to modify the recipients list.
-            $smtpEmail->setTo([$recipient]);
+            // Return 0 if the SendinBlue email couldn't be parsed.
+            if (!$smtpEmail instanceof SendSmtpEmail) {
+                return $result;
+            }
 
             try {
                 $response = $smtpApiInstance->sendTransacEmail($smtpEmail);
@@ -177,115 +174,130 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
      */
     protected function getSendinBlueEmail(Swift_Mime_Message $message)
     {
-        $data = [];
-
         $this->message = $message;
+
         $metadata = $this->getMetadata();
-        $mauticTokens = $mergeVars = $mergeVarPlaceholders = [];
+        $mauticTokens = [];
+        $mergeVars = [];
+        $mergeVarPlaceholders = [];
         $tokens = [];
+        $rval = [];
 
         // Sendinblue uses {NAME} for tokens so Mautic's need to be converted.
         if (!empty($metadata)) {
-            $metadataSet = reset($metadata);
-            $tokens = (!empty($metadataSet['tokens'])) ? $metadataSet['tokens'] : [];
-            $mauticTokens = array_keys($tokens);
+            foreach ($metadata as $eMrecipient => $metadataSet) {
+                $data = [];
 
-            $mergeVars = $mergeVarPlaceholders = [];
-            foreach ($mauticTokens as $token) {
-                $mergeVars[$token] = strtoupper(preg_replace('/[^a-z0-9]+/i', '', $token));
-                $mergeVarPlaceholders[$token] = '{'.$mergeVars[$token].'}';
-            }
-        }
+                $tokens = (!empty($metadataSet['tokens'])) ? $metadataSet['tokens'] : [];
+                $mauticTokens = array_keys($tokens);
 
-        $message = $this->messageToArray($mauticTokens, $mergeVarPlaceholders, true);
+                $mergeVars = $mergeVarPlaceholders = [];
 
-        if (empty($message['subject'])) {
-            throw new Exception($this->translator->trans('mautic.email.subject.notblank', [], 'validators'));
-        }
+                foreach ($mauticTokens as $token) {
+                    $mergeVars[$token] = strtoupper(preg_replace('/[^a-z0-9]+/i', '', $token));
+                    $mergeVarPlaceholders[$token] = '{'.$mergeVars[$token].'}';
+                }
 
-        if (empty($message['html'])) {
-            throw new Exception($this->translator->trans('mautic.email.html.notblank', [], 'validators'));
-        }
+                $message = $this->messageToArray($mauticTokens, $mergeVarPlaceholders, true);
 
-        if (isset($message['headers']['X-MC-Tags'])) {
-            $data['tags'] = explode(',', $message['headers']['X-MC-Tags']);
-        }
+                if (empty($message['subject'])) {
+                    throw new Exception($this->translator->trans('mautic.email.subject.notblank', [], 'validators'));
+                }
 
-        $data['sender'] = new SendSmtpEmailSender([
-            'name' => $message['from']['name'],
-            'email' => $message['from']['email'],
-        ]);
+                if (empty($message['html'])) {
+                    throw new Exception($this->translator->trans('mautic.email.html.notblank', [], 'validators'));
+                }
 
-        foreach ($message['recipients']['to'] as $to) {
-            $data['to'][] = new SendSmtpEmailTo([
-                'name' => $to['name'],
-                'email' => $to['email'],
-            ]);
-        }
+                if (isset($message['headers']['X-MC-Tags'])) {
+                    $data['tags'] = explode(',', $message['headers']['X-MC-Tags']);
+                }
 
-        foreach ($message['recipients']['cc'] as $cc) {
-            $data['cc'][] = new SendSmtpEmailCc([
-                'name' => $cc['name'],
-                'email' => $cc['email'],
-            ]);
-        }
+                $data['sender'] = new SendSmtpEmailSender([
+                    'name' => $message['from']['name'],
+                    'email' => $message['from']['email'],
+                ]);
 
-        foreach ($message['recipients']['bcc'] as $bcc) {
-            $data['bcc'][] = new SendSmtpEmailBcc([
-                'name' => $bcc['name'],
-                'email' => $bcc['email'],
-            ]);
-        }
-
-        if (isset($message['replyTo'])) {
-            $data['replyTo'] = new SendSmtpEmailReplyTo([
-                'name' => $message['replyTo']['name'],
-                'email' => $message['replyTo']['email'],
-            ]);
-        }
-
-        if (!empty($message['headers'])) {
-            $data['headers'] = $message['headers'];
-        }
-
-        $attachments = $this->message->getAttachments();
-        if (!empty($attachments)) {
-            foreach ($attachments as $attachment) {
-                if (stream_is_local($attachment['filePath'])) {
-                    $fileContent = file_get_contents($attachment['filePath']);
-
-                    // Breaks current iteration if content of the local file
-                    // is wrong.
-                    if (!$fileContent) {
-                        continue;
+                foreach ($message['recipients']['to'] as $to) {
+                    // recipient exception
+                    if ($to['email'] === $eMrecipient) {
+                        $data['to'][] = new SendSmtpEmailTo([
+                            'name' => $to['name'],
+                            'email' => $to['email'],
+                        ]);
                     }
+                }
 
-                    $data['attachment'][] = new SendSmtpEmailAttachment([
-                        'name' => $attachment['fileName'],
-                        'content' => base64_encode($fileContent),
+                foreach ($message['recipients']['cc'] as $cc) {
+                    $data['cc'][] = new SendSmtpEmailCc([
+                        'name' => $cc['name'],
+                        'email' => $cc['email'],
                     ]);
                 }
-                else {
-                    $data['attachment'][] = new SendSmtpEmailAttachment([
-                        'name' => $attachment['fileName'],
-                        'url' => $attachment['filePath'],
+
+                foreach ($message['recipients']['bcc'] as $bcc) {
+                    $data['bcc'][] = new SendSmtpEmailBcc([
+                        'name' => $bcc['name'],
+                        'email' => $bcc['email'],
                     ]);
                 }
+
+                if (isset($message['replyTo'])) {
+                    $data['replyTo'] = new SendSmtpEmailReplyTo([
+                        'name' => $message['replyTo']['name'],
+                        'email' => $message['replyTo']['email'],
+                    ]);
+                }
+
+                if (!empty($message['headers'])) {
+                    $data['headers'] = $message['headers'];
+                }
+
+                // exception for unsubscribe header
+                if (isset($data['headers']['List-Unsubscribe'])) {
+                    $data['headers']['List-Unsubscribe'] = '<' . $tokens['{unsubscribe_url}'] . '>';
+                }
+
+                $attachments = $this->message->getAttachments();
+                if (!empty($attachments)) {
+                    foreach ($attachments as $attachment) {
+                        if (stream_is_local($attachment['filePath'])) {
+                            $fileContent = file_get_contents($attachment['filePath']);
+
+                            // Breaks current iteration if content of the local file
+                            // is wrong.
+                            if (!$fileContent) {
+                                continue;
+                            }
+
+                            $data['attachment'][] = new SendSmtpEmailAttachment([
+                                'name' => $attachment['fileName'],
+                                'content' => base64_encode($fileContent),
+                            ]);
+                        }
+                        else {
+                            $data['attachment'][] = new SendSmtpEmailAttachment([
+                                'name' => $attachment['fileName'],
+                                'url' => $attachment['filePath'],
+                            ]);
+                        }
+                    }
+                }
+
+                // Prepares array of tokens to pass them as params.
+                foreach ($mergeVars as $mergeVarIndex => $mergeVar) {
+                    if (isset($tokens[$mergeVarIndex])) {
+                        $data['params'][$mergeVar] = $tokens[$mergeVarIndex];
+                    }
+                }
+
+                $data['subject'] = $message['subject'];
+                $data['htmlContent'] = $message['html'];
+                $data['text'] = $message['text'];
+
+                $rval[] = $data;
             }
         }
 
-        // Prepares array of tokens to pass them as params.
-        foreach ($mergeVars as $mergeVarIndex => $mergeVar) {
-            if (isset($tokens[$mergeVarIndex])) {
-                $data['params'][$mergeVar] = $tokens[$mergeVarIndex];
-            }
-        }
-
-        $data['subject'] = $message['subject'];
-        $data['htmlContent'] = $message['html'];
-        $data['text'] = $message['text'];
-
-        return new SendSmtpEmail($data);
+        return $rval;
     }
-
 }
