@@ -22,12 +22,19 @@ use Swift_Mime_Message;
 use Symfony\Component\HttpFoundation\Request;
 use GuzzleHttp\Client;
 use Symfony\Component\Translation\TranslatorInterface;
+use Doctrine\ORM\EntityManager;
+use MauticPlugin\MauticSendinblueBundle\Entity\SendinblueHash;
 
 /**
  * Class SendinblueApiTransport.
  */
 class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swift_Transport, TokenTransportInterface, CallbackTransportInterface
 {
+    /**
+     * @var EntityManager
+     */
+    protected $em;
+
     /**
      * @var string|null
      */
@@ -56,12 +63,14 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
      * @param $apiKey
      * @param TranslatorInterface $translator
      * @param SendinblueApiCallback $sendinblueApiCallback
+     * @param EntityManager $doctrine
      */
-    public function __construct($apiKey, TranslatorInterface $translator, SendinblueApiCallback $sendinblueApiCallback)
+    public function __construct($apiKey, TranslatorInterface $translator, SendinblueApiCallback $sendinblueApiCallback, EntityManager $doctrine)
     {
         $this->apiKey = $apiKey;
         $this->translator = $translator;
         $this->sendinblueApiCallback = $sendinblueApiCallback;
+        $this->em = $doctrine;
     }
 
     /**
@@ -142,6 +151,11 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         }
 
         foreach ($rval as $data) {
+            // lead hash id to identify message
+            // unset as it is not part of e-mail data
+            $leadHashId = $data['hashId'];
+            unset($data['hashId']);
+
             $smtpEmail = new SendSmtpEmail($data);
 
             // Return 0 if the SendinBlue email couldn't be parsed.
@@ -151,6 +165,13 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
 
             try {
                 $response = $smtpApiInstance->sendTransacEmail($smtpEmail);
+
+                $sbhash = new SendinblueHash();
+                $sbhash->setSendinblueId($response->getMessageId());
+                $sbhash->setLeadHashId($leadHashId);
+
+                $this->em->persist($sbhash);
+                $this->em->flush();
 
                 if ($response instanceof CreateSmtpEmail) {
                     $result++;
@@ -187,6 +208,7 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         if (!empty($metadata)) {
             foreach ($metadata as $eMrecipient => $metadataSet) {
                 $data = [];
+                $data['hashId'] = $metadataSet['hashId'];
 
                 $tokens = (!empty($metadataSet['tokens'])) ? $metadataSet['tokens'] : [];
                 $mauticTokens = array_keys($tokens);

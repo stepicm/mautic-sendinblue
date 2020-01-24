@@ -13,6 +13,7 @@ return [
                     '%mautic.mailer_api_key%',
                     'translator',
                     'mautic.transport.sendinblue_api.callback',
+                    'doctrine.orm.entity_manager',
                 ],
                 'tags' => [
                     'mautic.email_transport',

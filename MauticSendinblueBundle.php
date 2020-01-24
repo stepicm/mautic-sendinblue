@@ -21,8 +21,6 @@ class MauticSendinblueBundle extends PluginBundleBase
     }
 
     /**
-     * PluginBundle/Controller/PluginController:410.
-     *
      * @param EntityManager $em
      *
      * @return array|null
