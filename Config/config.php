@@ -3,8 +3,8 @@
 return [
     'name'        => 'Sendinblue integration',
     'description' => 'Allows to send E-mails with Sendinblue',
-    'version'     => '1.0',
-    'author'      => 'Dazzle',
+    'version'     => '1.0.3',
+    'author'      => 'stepicm',
     'services'    => [
         'other' => [
             'mautic.transport.sendinblue_api' => [
@@ -30,6 +30,22 @@ return [
                 'arguments' => [
                     'mautic.email.model.transport_callback',
                     'monolog.logger.mautic',
+                    'mautic.transport.sendinblue_api.parser',
+                ],
+            ],
+            'mautic.transport.sendinblue_api.publisher.data' => [
+                'class' => \MauticPlugin\MauticSendinblueBundle\Publisher\Data\DataUpdater::class,
+            ],
+            'mautic.transport.sendinblue_api.publisher.runner' => [
+                'class' => \MauticPlugin\MauticSendinblueBundle\Publisher\UpdateRunner::class,
+            ],
+            'mautic.transport.sendinblue_api.parser' => [
+                'class' => \MauticPlugin\MauticSendinblueBundle\Parser\SendinblueResponseParser::class,
+                'arguments' => [
+                    'router',
+                    'doctrine.orm.entity_manager',
+                    'mautic.transport.sendinblue_api.publisher.runner',
+                    'mautic.transport.sendinblue_api.publisher.data',
                 ],
             ],
         ],
