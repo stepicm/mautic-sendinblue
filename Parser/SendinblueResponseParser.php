@@ -123,6 +123,7 @@ class SendinblueResponseParser
                 $this->payload['url'] = false;
                 $this->payload['action'] = $this->params['event'];
             break;
+            case self::SB_UNSUBSCRIBED:
             case self::SB_HARD_BOUNCE:
             case self::SB_BLOCKED:
             case self::SB_INVALID_EMAIL:
@@ -142,7 +143,6 @@ class SendinblueResponseParser
                 // send request to BQ
             break;
             case self::SB_CLICK:
-            case self::SB_UNSUBSCRIBED:
                 $status = false;
                 // send request to mautic
                 // send request to BQ
