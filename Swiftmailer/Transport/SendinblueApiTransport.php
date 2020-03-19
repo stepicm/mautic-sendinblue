@@ -316,6 +316,11 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
                 $data['htmlContent'] = $message['html'];
                 $data['text'] = $message['text'];
 
+                // let's try to replace tokens before the rest of the Mautic...
+                foreach ($data['params'] as $string => $value) {
+                    $data['htmlContent'] = str_ireplace('{' . $string . '}', $value, $data['htmlContent']);
+                }
+
                 $rval[] = $data;
             }
         }
