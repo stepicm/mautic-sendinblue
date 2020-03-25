@@ -17,7 +17,6 @@ class DataUpdater
     protected $mandatory = [
         self::DATA_EVENT,
         self::DATA_SB_ID,
-        self::DATA_URL,
     ];
 
     /**
@@ -27,6 +26,7 @@ class DataUpdater
         self::DATA_HASH_ID,
         self::DATA_EMAIL,
         self::DATA_ACTION,
+        self::DATA_URL,
     ];
 
     /**

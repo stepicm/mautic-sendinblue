@@ -14,6 +14,7 @@ return [
                     'translator',
                     'mautic.transport.sendinblue_api.callback',
                     'doctrine.orm.entity_manager',
+                    'mautic.helper.bundle',
                 ],
                 'tags' => [
                     'mautic.email_transport',
@@ -31,6 +32,7 @@ return [
                     'mautic.email.model.transport_callback',
                     'monolog.logger.mautic',
                     'mautic.transport.sendinblue_api.parser',
+                    'mautic.helper.bundle',
                 ],
             ],
             'mautic.transport.sendinblue_api.publisher.data' => [
@@ -46,8 +48,13 @@ return [
                     'doctrine.orm.entity_manager',
                     'mautic.transport.sendinblue_api.publisher.runner',
                     'mautic.transport.sendinblue_api.publisher.data',
+                    'mautic.helper.bundle',
                 ],
             ],
         ],
+    ],
+    'parameters' => [
+        'log_enabled' => false,
+        'log_path'    => null,
     ],
 ];

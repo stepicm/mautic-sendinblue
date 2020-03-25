@@ -9,6 +9,7 @@ use MauticPlugin\MauticSendinblueBundle\Entity\SendinblueHash;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticSendinblueBundle\Publisher\UpdateRunner;
 use MauticPlugin\MauticSendinblueBundle\Publisher\Data\DataUpdater;
+use Mautic\CoreBundle\Helper\BundleHelper;
 
 class SendinblueResponseParser
 {
@@ -59,6 +60,11 @@ class SendinblueResponseParser
     protected $runner;
 
     /**
+     * @var BundleHelper
+     */
+    protected $helper;
+
+    /**
      * @var array
      */
     protected $params;
@@ -73,13 +79,15 @@ class SendinblueResponseParser
      * @param EntityManager $doctrine
      * @param UpdateRunner $runner
      * @param DataUpdater $updater
+     * @param BundleHelper $helper
      */
-    public function __construct(Router $router, EntityManager $doctrine, UpdateRunner $runner, DataUpdater $updater)
+    public function __construct(Router $router, EntityManager $doctrine, UpdateRunner $runner, DataUpdater $updater, BundleHelper $helper)
     {
         $this->router = $router;
         $this->em = $doctrine;
         $this->runner = $runner;
         $this->updater = $updater;
+        $this->helper = $helper;
     }
 
     /**
@@ -102,6 +110,8 @@ class SendinblueResponseParser
         // continues to DoNotContact (DNC)
         $status = true;
         $run = true;
+
+        $configParams = $this->helper->getBundleConfig('MauticSendinblueBundle', 'parameters', true);
 
         $this->payload = [
             'event' => $this->params['event'],
@@ -166,7 +176,12 @@ class SendinblueResponseParser
             default:
                 $status = false;
                 $run = false;
-                // log error unknown response
+                // system logging
+                if ($configParams['log_enabled']) {
+                    $requestTimeString = '[' . date('Y/m/d H:i:s') . '] - ';
+                    $logFileName = sprintf('%s/%s-sendinblue-errors.log', $configParams['log_path'], date('Y-m-d'));
+                    file_put_contents($logFileName, $requestTimeString . json_encode($this->payload) . PHP_EOL, FILE_APPEND);
+                }
             break;
         }
 

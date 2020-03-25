@@ -24,16 +24,25 @@ use GuzzleHttp\Client;
 use Symfony\Component\Translation\TranslatorInterface;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticSendinblueBundle\Entity\SendinblueHash;
+use Mautic\CoreBundle\Helper\BundleHelper;
 
 /**
  * Class SendinblueApiTransport.
  */
 class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swift_Transport, TokenTransportInterface, CallbackTransportInterface
 {
+    const LOG_TYPE_REQUEST = 'request';
+    const LOG_TYPE_ERROR = 'error';
+
     /**
      * @var EntityManager
      */
     protected $em;
+
+    /**
+     * @var BundleHelper
+     */
+    protected $helper;
 
     /**
      * @var string|null
@@ -50,7 +59,20 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
      */
     protected $started = false;
 
+    /**
+     * @var array
+     */
     protected $messages = [];
+
+    /**
+     * @var array
+     */
+    protected $configParams;
+
+    /**
+     * @var string
+     */
+    protected $requestTimeString;
 
     /**
      * @var SendinblueApiCallback
@@ -65,12 +87,13 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
      * @param SendinblueApiCallback $sendinblueApiCallback
      * @param EntityManager $doctrine
      */
-    public function __construct($apiKey, TranslatorInterface $translator, SendinblueApiCallback $sendinblueApiCallback, EntityManager $doctrine)
+    public function __construct($apiKey, TranslatorInterface $translator, SendinblueApiCallback $sendinblueApiCallback, EntityManager $doctrine, BundleHelper $helper)
     {
         $this->apiKey = $apiKey;
         $this->translator = $translator;
         $this->sendinblueApiCallback = $sendinblueApiCallback;
         $this->em = $doctrine;
+        $this->helper = $helper;
     }
 
     /**
@@ -166,6 +189,9 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
             try {
                 $response = $smtpApiInstance->sendTransacEmail($smtpEmail);
 
+                // system log
+                $this->additionalLog(json_encode($response->__toString()), self::LOG_TYPE_REQUEST);
+
                 $sbhash = new SendinblueHash();
                 $sbhash->setSendinblueId($response->getMessageId());
                 $sbhash->setLeadHashId($leadHashId);
@@ -177,6 +203,8 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
                     $result++;
                 }
             } catch (Exception $e) {
+                // system logging
+                $this->additionalLog('API Transport - ' . $e->getMessage() . PHP_EOL, self::LOG_TYPE_ERROR);
                 $this->throwException($e->getMessage());
             }
         }
@@ -326,5 +354,22 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         }
 
         return $rval;
+    }
+
+    private function additionalLog($what, $type)
+    {
+        if (false === isset($this->configParams)) {
+            $this->configParams = $this->helper->getBundleConfig('MauticSendinblueBundle', 'parameters', true);
+        }
+
+        if (false === isset($this->requestTimeString)) {
+            $this->requestTimeString = '[' . date('Y/m/d H:i:s') . '] - ';
+        }
+
+        // system logging
+        if ($this->configParams['log_enabled']) {
+            $logFileName = sprintf('%s/%s-sendinblue-%ss.log', $this->configParams['log_path'], date('Y-m-d'), $type);
+            file_put_contents($logFileName, $this->requestTimeString . $what . PHP_EOL, FILE_APPEND);
+        }
     }
 }
