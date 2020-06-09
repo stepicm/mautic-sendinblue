@@ -176,8 +176,10 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         foreach ($rval as $data) {
             // lead hash id to identify message
             // unset as it is not part of e-mail data
-            $leadHashId = $data['hashId'];
-            unset($data['hashId']);
+            if (isset($data['hashId'])) {
+                $leadHashId = $data['hashId'];
+                unset($data['hashId']);
+            }
 
             $smtpEmail = new SendSmtpEmail($data);
 
@@ -192,12 +194,14 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
                 // system log
                 $this->additionalLog(json_encode($response->__toString()), self::LOG_TYPE_REQUEST);
 
-                $sbhash = new SendinblueHash();
-                $sbhash->setSendinblueId($response->getMessageId());
-                $sbhash->setLeadHashId($leadHashId);
+                if (isset($leadHashId)) {
+                    $sbhash = new SendinblueHash();
+                    $sbhash->setSendinblueId($response->getMessageId());
+                    $sbhash->setLeadHashId($leadHashId);
 
-                $this->em->persist($sbhash);
-                $this->em->flush();
+                    $this->em->persist($sbhash);
+                    $this->em->flush();
+                }
 
                 if ($response instanceof CreateSmtpEmail) {
                     $result++;
@@ -351,6 +355,9 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
 
                 $rval[] = $data;
             }
+        } else {
+            // we have a message from queue
+            $rval = $this->relayQueuedEmail($message);
         }
 
         return $rval;
@@ -371,5 +378,122 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
             $logFileName = sprintf('%s/%s-sendinblue-%ss.log', $this->configParams['log_path'], date('Y-m-d'), $type);
             file_put_contents($logFileName, $this->requestTimeString . $what . PHP_EOL, FILE_APPEND);
         }
+    }
+
+    private function relayQueuedEmail($message)
+    {
+        $data['htmlContent'] = $message->getBody();
+        $data['textContent'] = strip_tags($message->getBody());
+        $data['subject'] = $message->getSubject();
+
+        // only one sender
+        foreach ($message->getFrom() as $email => $name) {
+            $data['sender'] = new SendSmtpEmailSender([
+                'name' => $name,
+                'email' => $email,
+            ]);
+        }
+
+        foreach ($message->getTo() as $email => $name) {
+            $data['to'][] = new SendSmtpEmailTo([
+                'name' => $name,
+                'email' => $email,
+            ]);
+        }
+
+        $cc = $message->getCc();
+        if (!empty($cc)) {
+            foreach ($cc as $email => $name) {
+                $data['cc'][] = new SendSmtpEmailCc([
+                    'name' => $name,
+                    'email' => $email,
+                ]);
+            }
+        }
+
+        $bcc = $message->getBcc();
+        if (!empty($bcc)) {
+            foreach ($bcc as $email => $name) {
+                $data['bcc'][] = new SendSmtpEmailBcc([
+                    'name' => $name,
+                    'email' => $email,
+                ]);
+            }
+        }
+
+        $replyTo = $message->getReplyTo();
+        if (!empty($replyTo)) {
+            foreach ($replyTo as $email => $name) {
+                $data['replyTo'] = new SendSmtpEmailReplyTo([
+                    'name' => $name,
+                    'email' => $email,
+                ]);
+            }
+        }
+
+        $data['headers'] = [];
+        $headers = $message->getHeaders()->getAll();
+        foreach ($headers as $header) {
+            if ($header->getFieldType() == \Swift_Mime_Header::TYPE_TEXT && !in_array($header->getFieldName(), $this->standardHeaderKeys)) {
+                $data['headers'][$header->getFieldName()] = $header->getFieldBodyModel();
+            }
+        }
+
+        // do files
+        $data['attachment'] = $this->addAttachmentToData($message);
+
+        // campaign email?
+        if (isset($message->leadIdHash)) {
+            $data['hashId'] = $message->leadIdHash;
+        }
+
+        // do tags exist? but they probably don't...
+        $tags = $message->getHeaders()->get('X-MC-Tags');
+        if (isset($tags)) {
+            $data['tags'] = explode(',', $tags);
+        }
+
+        var_dump($data);die;
+
+        $rval[] = $data;
+
+        return $rval;
+    }
+
+    private function addAttachmentToData($message)
+    {
+        $att = [];
+
+        foreach ($message->getChildren() as $child) {
+            var_dump($child->getHeaders()->get('content-disposition'));
+        }
+
+        //$attachments = $message->getAttachments();
+        if (!empty($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (stream_is_local($attachment['filePath'])) {
+                    $fileContent = file_get_contents($attachment['filePath']);
+
+                    // Breaks current iteration if content of the local file
+                    // is wrong.
+                    if (!$fileContent) {
+                        continue;
+                    }
+
+                    $att[] = new SendSmtpEmailAttachment([
+                        'name' => $attachment['fileName'],
+                        'content' => base64_encode($fileContent),
+                    ]);
+                }
+                else {
+                    $att[] = new SendSmtpEmailAttachment([
+                        'name' => $attachment['fileName'],
+                        'url' => $attachment['filePath'],
+                    ]);
+                }
+            }
+        }
+
+        return $att;
     }
 }
