@@ -453,8 +453,6 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
             $data['tags'] = explode(',', $tags);
         }
 
-        var_dump($data);die;
-
         $rval[] = $data;
 
         return $rval;
@@ -463,34 +461,12 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
     private function addAttachmentToData($message)
     {
         $att = [];
-
         foreach ($message->getChildren() as $child) {
-            var_dump($child->getHeaders()->get('content-disposition'));
-        }
-
-        //$attachments = $message->getAttachments();
-        if (!empty($attachments)) {
-            foreach ($attachments as $attachment) {
-                if (stream_is_local($attachment['filePath'])) {
-                    $fileContent = file_get_contents($attachment['filePath']);
-
-                    // Breaks current iteration if content of the local file
-                    // is wrong.
-                    if (!$fileContent) {
-                        continue;
-                    }
-
-                    $att[] = new SendSmtpEmailAttachment([
-                        'name' => $attachment['fileName'],
-                        'content' => base64_encode($fileContent),
-                    ]);
-                }
-                else {
-                    $att[] = new SendSmtpEmailAttachment([
-                        'name' => $attachment['fileName'],
-                        'url' => $attachment['filePath'],
-                    ]);
-                }
+            if ($child instanceof \Swift_Attachment) {
+                $att[] = new SendSmtpEmailAttachment([
+                    'name' => $child->getFilename(),
+                    'content' => $child->getEncoder()->encodeString($child->getBody()),
+                ]);
             }
         }
 
