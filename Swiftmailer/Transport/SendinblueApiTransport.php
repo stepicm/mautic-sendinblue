@@ -358,6 +358,11 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         } else {
             // we have a message from queue
             $rval = $this->relayQueuedEmail($message);
+
+            // timeout rate config
+            if (isset($this->configParams['send_rate_ms']) && $this->configParams['send_rate_ms'] > 0) {
+                usleep($this->configParams['send_rate_ms'] * 1000);
+            }
         }
 
         return $rval;
