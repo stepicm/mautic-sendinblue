@@ -445,7 +445,10 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
         }
 
         // do files
-        $data['attachment'] = $this->addAttachmentToData($message);
+        $att = $this->addAttachmentToData($message);
+        if (!empty($att)) {
+            $data['attachment'] = $att;
+        }
 
         // campaign email?
         if (isset($message->leadIdHash)) {
