@@ -107,86 +107,91 @@ class SendinblueResponseParser
      */
     public function parse()
     {
-        // continues to DoNotContact (DNC)
-        $status = true;
-        $run = true;
+        $status = false;
 
-        $configParams = $this->helper->getBundleConfig('MauticSendinblueBundle', 'parameters', true);
+        // fallback
+        if (isset($this->params['message-id'])) {
+            // continues to DoNotContact (DNC)
+            $status = true;
+            $run = true;
 
-        $this->payload = [
-            'event' => $this->params['event'],
-            'sb_id' => $this->params['message-id'],
-            'email' => $this->params['email'],
-        ];
+            $configParams = $this->helper->getBundleConfig('MauticSendinblueBundle', 'parameters', true);
 
-        switch ($this->params['event']) {
-            case self::SB_OPENED:
-            case self::SB_UNIQUE_OPENED:
-                // send request to mautic
-                // send request to BQ
-                $status = false;
-                $this->payload['url'] = $this->url(self::EMAIL_TRACKER, $this->params['message-id']);
-            break;
-            case self::SB_SPAM:
-            case self::SB_SOFT_BOUNCE:
-                $status = false;
-                $this->payload['url'] = false;
-                $this->payload['action'] = $this->params['event'];
-            break;
-            case self::SB_UNSUBSCRIBED:
-            case self::SB_HARD_BOUNCE:
-            case self::SB_BLOCKED:
-            case self::SB_INVALID_EMAIL:
-                $status = true;
-                $this->payload['url'] = false;
-                $this->payload['action'] = $this->params['event'];
-            break;
-            case self::SB_REQUEST:
-                $status = false;
-                $run = false;
-                // nothing -> confirmation of request
-                // check if sb_id is in DB
-            break;
-            case self::SB_DELIVERED:
-                $status = false;
-                $run = false;
-                // send request to BQ
-            break;
-            case self::SB_CLICK:
-                $status = false;
-                // send request to mautic
-                // send request to BQ
-                // click link is in the request object under link array
-                if (isset($this->params['link'])) {
-                    $val = $this->checkLink($this->params['link']);
+            $this->payload = [
+                'event' => $this->params['event'],
+                'sb_id' => $this->params['message-id'],
+                'email' => $this->params['email'],
+            ];
 
-                    if ($val['url']) {
-                        $this->payload['url'] = $this->params['link'];
+            switch ($this->params['event']) {
+                case self::SB_OPENED:
+                case self::SB_UNIQUE_OPENED:
+                    // send request to mautic
+                    // send request to BQ
+                    $status = false;
+                    $this->payload['url'] = $this->url(self::EMAIL_TRACKER, $this->params['message-id']);
+                break;
+                case self::SB_SPAM:
+                case self::SB_SOFT_BOUNCE:
+                    $status = false;
+                    $this->payload['url'] = false;
+                    $this->payload['action'] = $this->params['event'];
+                break;
+                case self::SB_UNSUBSCRIBED:
+                case self::SB_HARD_BOUNCE:
+                case self::SB_BLOCKED:
+                case self::SB_INVALID_EMAIL:
+                    $status = true;
+                    $this->payload['url'] = false;
+                    $this->payload['action'] = $this->params['event'];
+                break;
+                case self::SB_REQUEST:
+                    $status = false;
+                    $run = false;
+                    // nothing -> confirmation of request
+                    // check if sb_id is in DB
+                break;
+                case self::SB_DELIVERED:
+                    $status = false;
+                    $run = false;
+                    // send request to BQ
+                break;
+                case self::SB_CLICK:
+                    $status = false;
+                    // send request to mautic
+                    // send request to BQ
+                    // click link is in the request object under link array
+                    if (isset($this->params['link'])) {
+                        $val = $this->checkLink($this->params['link']);
+
+                        if ($val['url']) {
+                            $this->payload['url'] = $this->params['link'];
+                        } else {
+                            $status = true;
+
+                            $this->payload['url'] = $val['url'];
+                            $this->payload['action'] = $val['action'];
+                        }
                     } else {
-                        $status = true;
-
-                        $this->payload['url'] = $val['url'];
-                        $this->payload['action'] = $val['action'];
+                        $this->payload['url'] = $this->url(self::EMAIL_WEBVIEW, $this->params['message-id']);
                     }
-                } else {
-                    $this->payload['url'] = $this->url(self::EMAIL_WEBVIEW, $this->params['message-id']);
-                }
-            break;
-            case self::SB_ERROR:
-            default:
-                $status = false;
-                $run = false;
-                // system logging
-                if ($configParams['log_enabled']) {
-                    $requestTimeString = '[' . date('Y/m/d H:i:s') . '] - ';
-                    $logFileName = sprintf('%s/%s-sendinblue-errors.log', $configParams['log_path'], date('Y-m-d'));
-                    file_put_contents($logFileName, $requestTimeString . json_encode($this->payload) . PHP_EOL, FILE_APPEND);
-                }
-            break;
-        }
+                break;
+                case self::SB_ERROR:
+                default:
+                    $status = false;
+                    $run = false;
+                    // system logging
+                    if ($configParams['log_enabled']) {
+                        $requestTimeString = '[' . date('Y/m/d H:i:s') . '] - ';
+                        $logFileName = sprintf('%s/%s-sendinblue-errors.log', $configParams['log_path'], date('Y-m-d'));
+                        file_put_contents($logFileName, $requestTimeString . json_encode($this->payload) . PHP_EOL, FILE_APPEND);
+                    }
+                break;
+            }
 
-        if ($run) {
-            $this->run();
+            if ($run) {
+                $this->run();
+            }
         }
 
         return $status;

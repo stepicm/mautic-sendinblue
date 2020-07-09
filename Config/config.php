@@ -33,6 +33,7 @@ return [
                     'monolog.logger.mautic',
                     'mautic.transport.sendinblue_api.parser',
                     'mautic.helper.bundle',
+                    'doctrine.orm.entity_manager',
                 ],
             ],
             'mautic.transport.sendinblue_api.publisher.data' => [
