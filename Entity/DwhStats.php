@@ -124,7 +124,7 @@ class DwhStats
      *
      * @return DwhStats
      */
-    public function setCampaignId(int $campaignId)
+    public function setCampaignId($campaignId)
     {
         $this->campaignId = $campaignId;
 
@@ -144,7 +144,7 @@ class DwhStats
      *
      * @return DwhStats
      */
-    public function setCampaignCategoryId(int $campaignCategoryId)
+    public function setCampaignCategoryId($campaignCategoryId)
     {
         $this->campaignCategoryId = $campaignCategoryId;
 
@@ -164,7 +164,7 @@ class DwhStats
      *
      * @return DwhStats
      */
-    public function setChannelId(int $channelId)
+    public function setChannelId($channelId)
     {
         $this->channelId = $channelId;
 
