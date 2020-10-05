@@ -141,8 +141,8 @@ class SendinblueApiCallback
             if (isset($lead)) {
                 $dwhStat->setUsername($lead->getUsername());
             }
-            if (isset($emailStats)) {
-                $dwhStat->setCampaignId($emailStats->getSourceId());
+            if (isset($emailStats) && isset($campaignEvent)) {
+                $dwhStat->setCampaignId($campaignEvent->getCampaignId());
                 $dwhStat->setChannelId($emailStats->getEmailId());
             }
             if (isset($campaign)) {
