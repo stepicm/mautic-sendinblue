@@ -12,6 +12,7 @@ use MauticPlugin\MauticSendinblueBundle\Entity\EmailStats;
 use MauticPlugin\MauticSendinblueBundle\Entity\DwhStats;
 use MauticPlugin\MauticSendinblueBundle\Entity\CustomSimpleContact;
 use MauticPlugin\MauticSendinblueBundle\Entity\CustomSimpleCampaign;
+use MauticPlugin\MauticSendinblueBundle\Entity\CustomSimpleCampaignEvents;
 use Mautic\CoreBundle\Helper\BundleHelper;
 use Doctrine\ORM\EntityManager;
 
@@ -132,9 +133,11 @@ class SendinblueApiCallback
             $sendinblueHash = $this->em->getRepository(SendinblueHash::class)->findOneBy(['sendinblueId' => $parameters['message-id']]);
             $emailStats = $this->em->getRepository(EmailStats::class)->findOneBy(['trackingHash' => $sendinblueHash->getLeadHashId()]);
             $lead = $this->em->getRepository(CustomSimpleContact::class)->findOneBy(['id' => $emailStats->getLeadId()]);
-            $campaign = $this->em->getRepository(CustomSimpleCampaign::class)->findOneBy(['id' => $emailStats->getSourceId()]);
+            $campaignEvent = $this->em->getRepository(CustomSimpleCampaignEvents::class)->findOneBy(['id' => $emailStats->getSourceId()]);
+            $campaign = $this->em->getRepository(CustomSimpleCampaign::class)->findOneBy(['id' => $campaignEvent->getCampaignId()]);
 
             $dwhStat = new DwhStats();
+
             if (isset($lead)) {
                 $dwhStat->setUsername($lead->getUsername());
             }
