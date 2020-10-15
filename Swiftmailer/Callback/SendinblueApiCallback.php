@@ -131,6 +131,11 @@ class SendinblueApiCallback
 
         if (isset($parameters['message-id'])) {
             $sendinblueHash = $this->em->getRepository(SendinblueHash::class)->findOneBy(['sendinblueId' => $parameters['message-id']]);
+
+            if (is_null($sendinblueHash)) {
+                return;
+            }
+
             $emailStats = $this->em->getRepository(EmailStats::class)->findOneBy(['trackingHash' => $sendinblueHash->getLeadHashId()]);
             $lead = $this->em->getRepository(CustomSimpleContact::class)->findOneBy(['id' => $emailStats->getLeadId()]);
             $campaignEvent = $this->em->getRepository(CustomSimpleCampaignEvents::class)->findOneBy(['id' => $emailStats->getSourceId()]);
