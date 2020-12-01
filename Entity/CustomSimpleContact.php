@@ -23,6 +23,11 @@ class CustomSimpleContact
     private $username;
 
     /**
+     * @var string
+     */
+    private $playerId;
+
+    /**
      * @param ORM\ClassMetadata $metadata
      */
     public static function loadMetadata(ORM\ClassMetadata $metadata)
@@ -33,6 +38,7 @@ class CustomSimpleContact
         $builder->addId();
         $builder->addNamedField('email', 'string', 'email');
         $builder->addNamedField('username', 'string', 'username');
+        $builder->addNamedField('playerId', 'string', 'player_id');
     }
 
     /**
@@ -49,6 +55,14 @@ class CustomSimpleContact
     public function getUsername()
     {
         return $this->username;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPlayerId()
+    {
+        return $this->playerId;
     }
 
     /**

@@ -17,8 +17,11 @@ use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
  *   `event_ts` datetime DEFAULT NULL,
  *   PRIMARY KEY (`id`)
  * ) ENGINE=InnoDB AUTO_INCREMENT=108 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC
+ *
+ * // Update
+ * ALTER TABLE dwh_stats ADD player_id player_id varchar(255) AFTER username
+ *
 */
-
 class DwhStats
 {
     const CHANNEL_EMAIL = 'email';
@@ -32,6 +35,11 @@ class DwhStats
      * @var string
      */
     private $username;
+
+    /**
+     * @var string
+     */
+    private $playerId;
 
     /**
      * @var int
@@ -73,6 +81,7 @@ class DwhStats
 
         $builder->addId();
         $builder->addField('username', 'string');
+        $builder->addNamedField('playerId', 'string', 'player_id');
         $builder->addNamedField('campaignId', 'integer', 'campaign_id');
         $builder->addNamedField('campaignCategoryId', 'integer', 'campaign_category_id');
         $builder->addNamedField('channelId', 'integer', 'channel_id');
@@ -100,6 +109,14 @@ class DwhStats
     }
 
     /**
+     * @return string
+     */
+    public function getPlayerId()
+    {
+        return $this->playerId;
+    }
+
+    /**
      * @param string $username
      *
      * @return DwhStats
@@ -107,6 +124,18 @@ class DwhStats
     public function setUsername($username)
     {
         $this->username = $username;
+
+        return $this;
+    }
+
+    /**
+     * @param string $playerId
+     *
+     * @return DwhStats
+     */
+    public function setPlayerId($playerId)
+    {
+        $this->playerId = $playerId;
 
         return $this;
     }
