@@ -5,6 +5,16 @@ namespace MauticPlugin\MauticSendinblueBundle\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 
+/**
+ * CREATE TABLE `sendinblue_leads` (
+ * `id` int(11) NOT NULL AUTO_INCREMENT,
+ * `sendinblue_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+ * `lead_hash_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+ * PRIMARY KEY (`id`),
+ * KEY `sendinblue_id` (`sendinblue_id`)
+ * ) ENGINE=InnoDB AUTO_INCREMENT=947424 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC
+ */
+
 class SendinblueHash
 {
     /**
