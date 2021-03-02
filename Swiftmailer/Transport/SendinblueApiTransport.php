@@ -17,8 +17,9 @@ use SendinBlue\Client\Model\SendSmtpEmailSender;
 use SendinBlue\Client\Model\SendSmtpEmailTo;
 use SendinBlue\Client\Model\SendSmtpEmailCc;
 use SendinBlue\Client\Model\SendSmtpEmailBcc;
-use Swift_Message;
-use Swift_Mime_Message;
+use \Swift_Mime_Message;
+use \Swift_Message;
+use \Swift_Mime_SimpleMessage;
 use Symfony\Component\HttpFoundation\Request;
 use GuzzleHttp\Client;
 use Symfony\Component\Translation\TranslatorInterface;
@@ -160,7 +161,7 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
     /**
      * {@inheritdoc}
      */
-    public function send(Swift_Mime_Message $message, &$failedRecipients = null)
+    public function send($message, &$failedRecipients = null)
     {
         $result = 0;
         $smtpEmail = NULL;
@@ -217,15 +218,15 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
     }
 
     /**
-     * Converts Swift_Mime_Message object into SendSmtpEmail one.
+     * Converts Swift_Mime_SimpleMessage object into SendSmtpEmail one.
      *
-     * @param Swift_Mime_Message $message
+     * @param Swift_Mime_SimpleMessage $message
      *
      * @return SendSmtpEmail
      *
      * @throws Exception
      */
-    protected function getSendinBlueEmail(Swift_Mime_Message $message)
+    protected function getSendinBlueEmail(Swift_Mime_SimpleMessage $message)
     {
         $this->message = $message;
 
@@ -311,29 +312,12 @@ class SendinblueApiTransport extends AbstractTokenArrayTransport implements \Swi
                     $data['headers']['List-Unsubscribe'] = '<' . $tokens['{unsubscribe_url}'] . '>';
                 }
 
-                $attachments = $this->message->getAttachments();
-                if (!empty($attachments)) {
-                    foreach ($attachments as $attachment) {
-                        if (stream_is_local($attachment['filePath'])) {
-                            $fileContent = file_get_contents($attachment['filePath']);
-
-                            // Breaks current iteration if content of the local file
-                            // is wrong.
-                            if (!$fileContent) {
-                                continue;
-                            }
-
-                            $data['attachment'][] = new SendSmtpEmailAttachment([
-                                'name' => $attachment['fileName'],
-                                'content' => base64_encode($fileContent),
-                            ]);
-                        }
-                        else {
-                            $data['attachment'][] = new SendSmtpEmailAttachment([
-                                'name' => $attachment['fileName'],
-                                'url' => $attachment['filePath'],
-                            ]);
-                        }
+                if (!empty($message['attachments'])) {
+                    foreach ($message['attachments'] as $attachment) {
+                        $data['attachment'][] = new SendSmtpEmailAttachment([
+                            'name' => $attachment['name'],
+                            'content' => $attachment['content'],
+                        ]);
                     }
                 }
 
